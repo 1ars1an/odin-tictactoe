@@ -1,6 +1,6 @@
 gameBoard = [];
 
-function Player(name, weapon) {
+const Player = function(name, weapon) {
     let score = 0;
 
     const resetScore = () => score = 0;
@@ -43,7 +43,6 @@ function GameState() {
     const updateBoard = (rw, clm, player) => {
         // Check Valid Move?
         // Use Choice From Player To Update Cell
-        console.log('running update');
         if (board[rw][clm].getValue()) return false;
         board[rw][clm].setValue(player);
         return true;
@@ -65,10 +64,12 @@ const Cell = function() {
     }
     const getValue = () => value;
 
-    return { setValue, getValue };
+    const resetValue = () => value = '';
+
+    return { setValue, getValue, resetValue };
 }
 
-function GameController() {
+function GameController(userOneName, userOneWeapon, userTwoName, userTwoWeapon) {
     /*
     //Prompt For Name, Weapon Selection
     //Setup Users
@@ -80,15 +81,15 @@ function GameController() {
     //Check For Winner After Every Round
     //If No Winner Display Board Again
     */
-    let weapons = ['O', 'X', '!', '*'];
     let players = [];
-    
-    for (let i = 0; i < 2; i++) {
-        const playerName = prompt("Enter Username: ", `Player ${i + 1}`);
-        const playerWeapon = prompt("Choose Weapon: ");
 
-        players.push(Player(playerName, playerWeapon));
-    }
+    const playerOneName = `${userOneName.value || 'Player One'}`;
+    const playerOneWeapon = `${userOneWeapon.value || 'X'}`;
+    players.push(Player(playerOneName, playerOneWeapon));
+
+    const playerTwoName = `${userTwoName.value || 'Player Two'}`;
+    const playerTwoWeapon = `${userTwoWeapon.value || 'O'}`;
+    players.push(Player(playerTwoName, playerTwoWeapon));
 
     const gameBoard = GameState();
     gameBoard.setBoard();
@@ -100,22 +101,20 @@ function GameController() {
     }
     const getActivePlayer = () => activePlayer;
 
+    const setActivePlayer = () => activePlayer = players[0];
+
     const displayBoard = () => {
         gameBoard.logBoard();
-        console.log(`${getActivePlayer().name}'s Turn!`)
     }
 
-    const playRound = () => {
-        const row = +(prompt("Enter Row: "));
-        const column = +(prompt("Enter Column"));
-
-        const isBoardUpdated = gameBoard.updateBoard(row, column, activePlayer);
+    const playRound = (row, col, game) => {
+        //const row = +(prompt("Enter Row: "));
+        //const column = +(prompt("Enter Column"));
+        let isBoardUpdated = gameBoard.updateBoard(row, col, game.getActivePlayer());
         
-        if (checkColumnWinner()) {
+        if (checkColumnWinner() || checkRowWinner()) {
+            game.getActivePlayer().setScore();
             console.log('You Won!');
-        }
-        else {
-            console.log('No win yet');
         }
 
         if (isBoardUpdated) {
@@ -147,7 +146,6 @@ function GameController() {
             const currentColumnParent = currentRoundBoard[0][col].getValue();
             if (currentColumnParent !== '') {
                 const threeStrikes = currentRoundBoard.every((row) => {
-                    console.log(`current cell is ${row[col].getValue()}`);
                     return row[col].getValue() === currentColumnParent;
                 });
                 
@@ -156,20 +154,121 @@ function GameController() {
         }
         return false;
     }
-
-    const endGame = function() {
-        
-    }
     
     const resetGame = function() {
-
+        setActivePlayer();
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                gameBoard.getBoard()[i][j].resetValue();
+            }
+        }
+        game.players[0].resetScore();
+        game.players[0].resetScore();
     }
 
-    playRound();
-
-    return { playRound, displayBoard, getBoard: gameBoard.getBoard,resetGame }
+    return { players, getActivePlayer, playRound, getBoard: gameBoard.getBoard, resetGame }
 }
 
+const screenController = function() {
+    const startBtn = document.getElementById('start-game');
+    const playerOneInput = document.getElementById('player1-name');
+    const playerTwoInput = document.getElementById('player2-name');
+    const playerOneWeapon = document.getElementById('player1-weapon');
+    const playerTwoWeapon = document.getElementById('player2-weapon');
 
 
-game = GameController();
+    const closeForm = function() {
+        const gameStartForm = document.getElementById('player-setup');
+        gameStartForm.style.display = 'none';
+    }
+
+    const initializeBoard = function() {
+        const container = document.getElementById('game-board');
+        container.style.display = 'grid';
+        const activeBox = document.createElement('div');
+        const buttonsBox = document.createElement('div');
+        const gridBox = document.createElement('div');
+        const playerScreen = document.createElement('div');
+
+        for (let i = 0; i < 3; i++) {
+            for(let j = 0; j < 3; j++) {
+                const gridCell = document.createElement('button');
+                gridCell.classList.add('grid-cell');
+                gridCell.setAttribute('grid-row', `${i}`);
+                gridCell.setAttribute('grid-col', `${j}`);
+                gridBox.append(gridCell);
+            }
+        }
+
+        //create and attach elements to buttonsBox
+        const retryBtn = document.createElement('button');
+        buttonsBox.append(retryBtn);
+
+        //create and attach player score boxes to playerScreen
+        const playerOne = document.createElement('div');
+        const playerTwo = document.createElement('div');
+        playerScreen.append(playerOne, playerTwo);
+        
+        //attach elements to grid
+        container.append(activeBox, buttonsBox, gridBox, playerScreen);
+
+        //setup classes
+        container.id = 'game-board';
+        gridBox.id = 'grid-box';
+        activeBox.id = 'active-box';
+        buttonsBox.id = 'buttons-box';
+        playerScreen.id = 'player-screen';
+        retryBtn.id = 'retry-btn';
+        playerOne.id = 'player1-screen';
+        playerTwo.id = 'player2-screen';
+
+        return {container, activeBox, gridBox, retryBtn, playerOne, playerTwo};
+    }
+
+    const initializeText = function(game, activeBox, playerOne, playerOneBox, playerTwo, playerTwoBox, retryBtn) {
+        activeBox.textContent = `It's ${game.getActivePlayer().name}'s Turn Now!`
+        retryBtn.textContent = 'Retry!'
+        playerOneBox.textContent = `P1: ${playerOne.getScore()}`;
+        playerTwoBox.textContent = `P2: ${playerTwo.getScore()}`;
+
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                const displayCell = document.querySelector(`[grid-row="${i}"][grid-col="${j}"]`);
+                displayCell.textContent = `${game.getBoard()[i][j].getValue()}`;
+            }
+        }
+    }
+
+    function playCell(e, game, boardUi) {
+        if (e.target.tagName === 'BUTTON') {
+            const cellRow = e.target.getAttribute('grid-row');
+            const cellCol = e.target.getAttribute('grid-col');
+            
+            game.playRound(cellRow, cellCol, game);
+            textUpdate = initializeText(game, boardUi.activeBox, game.players[0], boardUi.playerOne, game.players[1], boardUi.playerTwo, boardUi.retryBtn)
+        }
+    }
+
+    function resetGameScreen(game, boardUi) {
+        game.resetGame();
+        textUpdate = initializeText(game, boardUi.activeBox, game.players[0], boardUi.playerOne, game.players[1], boardUi.playerTwo, boardUi.retryBtn)
+    }
+
+    startBtn.addEventListener('click', () => {
+        closeForm();
+        game = GameController(playerOneInput, playerOneWeapon, playerTwoInput, playerTwoWeapon);
+        boardUi = initializeBoard();
+        textUi = initializeText(game, boardUi.activeBox, game.players[0], boardUi.playerOne, game.players[1], boardUi.playerTwo, boardUi.retryBtn);
+
+        const gridEvent = boardUi.gridBox;
+        gridEvent.addEventListener('click', (e) => {
+            playCell(e, game, boardUi)
+        });
+
+        boardUi.retryBtn.addEventListener('click', () => {
+            resetGameScreen(game, boardUi);
+        })
+    });
+}
+
+playBoard = screenController();
